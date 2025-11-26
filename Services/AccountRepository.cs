@@ -1,54 +1,54 @@
-﻿using MauiApp1.Interfaces;
-using MauiApp1.Models;
+﻿using Microsoft.EntityFrameworkCore;
+using SmartLibraryAPI.Data;
+using SmartLibraryAPI.Interfaces;
+using SmartLibraryAPI.Models;
 
-namespace MauiApp1.Services
+namespace SmartLibraryAPI.Services
 {
     public class AccountRepository : IAccountRepository
     {
-        private readonly List<Account> _accounts = new();
-        private int _nextId = 1;
+        private readonly LibraryDbContext _context;
 
-        public Task<List<Account>> GetAllAccountsAsync()
+        public AccountRepository(LibraryDbContext context)
         {
-            return Task.FromResult(_accounts.ToList());
+            _context = context;
         }
 
-        public Task<Account?> GetAccountByIdAsync(int id)
+        public async Task<List<Account>> GetAllAccountsAsync()
         {
-            var account = _accounts.FirstOrDefault(a => a.Id == id);
-            return Task.FromResult(account);
+            return await _context.Accounts.ToListAsync();
         }
 
-        public Task<Account?> GetAccountByUsernameAsync(string username)
+        public async Task<Account?> GetAccountByIdAsync(int id)
         {
-            var account = _accounts.FirstOrDefault(a => a.Username.Equals(username, StringComparison.OrdinalIgnoreCase));
-            return Task.FromResult(account);
+            return await _context.Accounts.FindAsync(id);
         }
 
-        public Task AddAccountAsync(Account account)
+        public async Task<Account?> GetAccountByUsernameAsync(string username)
         {
-            account.Id = _nextId++;
-            _accounts.Add(account);
-            return Task.CompletedTask;
+            return await _context.Accounts.FirstOrDefaultAsync(a => a.Username == username);
         }
 
-        public Task UpdateAccountAsync(Account account)
+        public async Task AddAccountAsync(Account account)
         {
-            var existing = _accounts.FirstOrDefault(a => a.Id == account.Id);
-            if (existing != null)
-            {
-                var index = _accounts.IndexOf(existing);
-                _accounts[index] = account;
-            }
-            return Task.CompletedTask;
+            _context.Accounts.Add(account);
+            await _context.SaveChangesAsync();
         }
 
-        public Task DeleteAccountAsync(int id)
+        public async Task UpdateAccountAsync(Account account)
         {
-            var account = _accounts.FirstOrDefault(a => a.Id == id);
+            _context.Accounts.Update(account);
+            await _context.SaveChangesAsync();
+        }
+
+        public async Task DeleteAccountAsync(int id)
+        {
+            var account = await _context.Accounts.FindAsync(id);
             if (account != null)
-                _accounts.Remove(account);
-            return Task.CompletedTask;
+            {
+                _context.Accounts.Remove(account);
+                await _context.SaveChangesAsync();
+            }
         }
     }
 }

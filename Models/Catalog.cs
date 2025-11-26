@@ -1,16 +1,17 @@
-﻿namespace MauiApp1.Models
-{
-    public class Catalog
-    {
-        public int Id { get; set; }
-        public string Name { get; set; }
-        public string Description { get; set; }
-        public DateTime CreatedDate { get; set; } = DateTime.Now;
+﻿using System;
+using System.Collections.Generic;
 
-        public Catalog(string name, string description = "")
-        {
-            Name = name;
-            Description = description;
-        }
-    }
+namespace SmartLibraryAPI.Models;
+
+public partial class Catalog
+{
+    public int Id { get; set; }
+
+    public string Name { get; set; } = null!;
+
+    public string Description { get; set; } = null!;
+
+    public DateTime CreatedDate { get; set; }
+
+    public virtual ICollection<BookCatalog> BookCatalogs { get; set; } = new List<BookCatalog>();
 }

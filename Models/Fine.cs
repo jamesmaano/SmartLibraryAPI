@@ -1,23 +1,30 @@
-﻿namespace MauiApp1.Models
+﻿using System;
+
+namespace SmartLibraryAPI.Models
 {
-    public class Fine
+    public partial class Fine
     {
         public int Id { get; set; }
         public int LoanId { get; set; }
         public int UserId { get; set; }
         public decimal Amount { get; set; }
         public DateTime IssuedDate { get; set; }
-        public bool IsPaid { get; set; } = false;
         public DateTime? PaidDate { get; set; }
+        public bool IsPaid { get; set; }
 
-        public const decimal DailyFineAmount = 5.00m;
+        public virtual Loan Loan { get; set; } = null!;
+        public virtual User User { get; set; } = null!;
 
-        public Fine(int loanId, int userId, int daysOverdue)
+        public Fine() { }
+
+        // Constructor matching your service calls
+        public Fine(int loanId, int userId, decimal amount)
         {
             LoanId = loanId;
             UserId = userId;
-            Amount = daysOverdue * DailyFineAmount;
-            IssuedDate = DateTime.Now;
+            Amount = amount;
+            IssuedDate = DateTime.Now; // default to now
+            IsPaid = false;
         }
     }
 }

@@ -1,7 +1,7 @@
-﻿using MauiApp1.Interfaces;
-using MauiApp1.Models;
+﻿using SmartLibraryAPI.Interfaces;
+using SmartLibraryAPI.Models;
 
-namespace MauiApp1.Services
+namespace SmartLibraryAPI.Services
 {
     public class ReportService : IReportService
     {
@@ -96,7 +96,7 @@ namespace MauiApp1.Services
                 var unpaidFines = await _fineService.GetUnpaidFinesAsync(user.Id);
                 var totalFines = await _fineService.GetTotalFinesAsync(user.Id);
 
-                if (unpaidFines.Any())
+                if (unpaidFines.Count > 0)
                 {
                     finesData.Add(new
                     {

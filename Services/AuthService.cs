@@ -1,9 +1,7 @@
-﻿using MauiApp1.Interfaces;
-using MauiApp1.Models;
-using System.Security.Cryptography;
-using System.Text;
+﻿using SmartLibraryAPI.Interfaces;
+using SmartLibraryAPI.Models;
 
-namespace MauiApp1.Services
+namespace SmartLibraryAPI.Services
 {
     public class AuthService : IAuthService
     {
@@ -14,14 +12,20 @@ namespace MauiApp1.Services
             _accountRepository = accountRepository;
         }
 
-        public async Task<bool> RegisterAsync(string username, string password, string email, string role)
+        public async Task<bool> RegisterAsync(
+            string username,
+            string password,
+            string email,
+            string fullName,
+            string studentId,
+            string role)
         {
             var existing = await _accountRepository.GetAccountByUsernameAsync(username);
-            if (existing != null) return false;
+            if (existing != null)
+                return false;
 
-            var passwordHash = HashPassword(password);
-            var account = new Account(username, passwordHash, email, role);
-
+            var hashedPassword = HashPassword(password);
+            var account = new Account(username, hashedPassword, email, fullName, studentId, role);
             await _accountRepository.AddAccountAsync(account);
             return true;
         }
@@ -29,49 +33,62 @@ namespace MauiApp1.Services
         public async Task<Account?> LoginAsync(string username, string password)
         {
             var account = await _accountRepository.GetAccountByUsernameAsync(username);
-
-            if (account == null || !account.IsActive)
+            if (account == null)
                 return null;
 
             if (!VerifyPassword(password, account.PasswordHash))
                 return null;
 
-            account.LastLogin = DateTime.Now;
+            account.LastLogin = DateTime.UtcNow; // ✅ Changed from DateTime.Now
             await _accountRepository.UpdateAccountAsync(account);
-
             return account;
         }
 
-        public async Task<List<Account>> GetAllAccountsAsync()
+        public async Task<bool> ChangePasswordAsync(int accountId, string currentPassword, string newPassword)
         {
-            return await _accountRepository.GetAllAccountsAsync();
+            var account = await _accountRepository.GetAccountByIdAsync(accountId);
+            if (account == null)
+                return false;
+
+            if (!VerifyPassword(currentPassword, account.PasswordHash))
+                return false;
+
+            account.PasswordHash = HashPassword(newPassword);
+            await _accountRepository.UpdateAccountAsync(account);
+            return true;
         }
 
-        public async Task<Account?> GetAccountByIdAsync(int id)
+        public Task<List<Account>> GetAllAccountsAsync()
         {
-            return await _accountRepository.GetAccountByIdAsync(id);
+            return _accountRepository.GetAllAccountsAsync();
+        }
+
+        public Task<Account?> GetAccountByIdAsync(int id)
+        {
+            return _accountRepository.GetAccountByIdAsync(id);
         }
 
         public async Task<bool> DeleteAccountAsync(int id)
         {
-            var account = await _accountRepository.GetAccountByIdAsync(id);
-            if (account == null) return false;
-
             await _accountRepository.DeleteAccountAsync(id);
             return true;
         }
 
         public string HashPassword(string password)
         {
-            using var sha256 = SHA256.Create();
-            var bytes = sha256.ComputeHash(Encoding.UTF8.GetBytes(password));
-            return Convert.ToBase64String(bytes);
+            return BCrypt.Net.BCrypt.HashPassword(password, BCrypt.Net.BCrypt.GenerateSalt(12));
         }
 
         public bool VerifyPassword(string password, string hash)
         {
-            var newHash = HashPassword(password);
-            return newHash == hash;
+            try
+            {
+                return BCrypt.Net.BCrypt.Verify(password, hash);
+            }
+            catch
+            {
+                return false;
+            }
         }
     }
 }

@@ -1,6 +1,6 @@
-﻿using MauiApp1.Models;
+﻿using SmartLibraryAPI.Models;
 
-namespace MauiApp1.Interfaces
+namespace SmartLibraryAPI.Interfaces
 {
     public interface IAccountRepository
     {

@@ -1,7 +1,7 @@
-﻿namespace MauiApp1.Factories
-{
-    using MauiApp1.Models;
+﻿using SmartLibraryAPI.Models;
 
+namespace SmartLibraryAPI.Factories
+{
     /// <summary>
     /// Factory Pattern: Creates User objects based on type
     /// </summary>

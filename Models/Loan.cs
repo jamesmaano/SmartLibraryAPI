@@ -1,6 +1,8 @@
-﻿namespace MauiApp1.Models
+﻿using System;
+
+namespace SmartLibraryAPI.Models
 {
-    public class Loan
+    public partial class Loan
     {
         public int Id { get; set; }
         public int UserId { get; set; }
@@ -8,19 +10,22 @@
         public DateTime BorrowDate { get; set; }
         public DateTime DueDate { get; set; }
         public DateTime? ReturnDate { get; set; }
-        public bool IsReturned { get; set; } = false;
+        public bool IsReturned { get; set; }
 
-        public User User { get; set; }
-        public Book Book { get; set; }
+        public virtual Book Book { get; set; } = null!;
+        public virtual User User { get; set; } = null!;
 
-        public Loan(int userId, int bookId, User user, Book book, int returnDays)
+        public Loan() { }
+
+        // Constructor matching your LoanService (5 args)
+        public Loan(int id, int userId, int bookId, DateTime borrowDate, DateTime dueDate)
         {
+            Id = id;
             UserId = userId;
             BookId = bookId;
-            User = user;
-            Book = book;
-            BorrowDate = DateTime.Now;
-            DueDate = DateTime.Now.AddDays(returnDays);
+            BorrowDate = borrowDate;
+            DueDate = dueDate;
+            IsReturned = false;
         }
     }
 }

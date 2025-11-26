@@ -1,5 +1,7 @@
 ﻿using Microsoft.AspNetCore.Mvc;
-using MauiApp1.Interfaces;
+using SmartLibraryAPI.Interfaces;
+using SmartLibraryAPI.Models;
+using SmartLibraryAPI.Factories;
 
 namespace SmartLibraryAPI.Controllers
 {

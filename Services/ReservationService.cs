@@ -1,19 +1,24 @@
-﻿using MauiApp1.Interfaces;
-using MauiApp1.Models;
+﻿using Microsoft.EntityFrameworkCore;
+using SmartLibraryAPI.Data;
+using SmartLibraryAPI.Interfaces;
+using SmartLibraryAPI.Models;
 
-namespace MauiApp1.Services
+namespace SmartLibraryAPI.Services
 {
     public class ReservationService : IReservationService
     {
-        private readonly List<Reservation> _reservations = new();
+        private readonly LibraryDbContext _context;
         private readonly IBookRepository _bookRepository;
         private readonly IUserRepository _userRepository;
-        private int _nextId = 1;
 
-        public ReservationService(IBookRepository bookRepository, IUserRepository userRepository)
+        public ReservationService(
+            LibraryDbContext context,
+            IBookRepository bookRepository,
+            IUserRepository userRepository)
         {
-            _bookRepository = bookRepository;
-            _userRepository = userRepository;
+            _context = context ?? throw new ArgumentNullException(nameof(context));
+            _bookRepository = bookRepository ?? throw new ArgumentNullException(nameof(bookRepository));
+            _userRepository = userRepository ?? throw new ArgumentNullException(nameof(userRepository));
         }
 
         public async Task<bool> ReserveBookAsync(int userId, int bookId)
@@ -24,63 +29,64 @@ namespace MauiApp1.Services
             if (user == null || book == null)
                 return false;
 
-            // Check if user already has an active reservation for this book
-            var existingReservation = _reservations
-                .FirstOrDefault(r => r.UserId == userId && r.BookId == bookId && r.IsActive);
+            var existingReservation = await _context.Reservations
+                .FirstOrDefaultAsync(r => r.UserId == userId && r.BookId == bookId && r.IsActive);
 
             if (existingReservation != null)
                 return false;
 
-            var reservation = new Reservation(userId, bookId, user, book)
+            var reservation = new Reservation
             {
-                Id = _nextId++
+                UserId = userId,
+                BookId = bookId,
+                User = user,
+                Book = book,
+                ReservationDate = DateTime.UtcNow,
+                ExpiryDate = DateTime.UtcNow.AddDays(7),
+                IsActive = true
             };
 
-            _reservations.Add(reservation);
+            _context.Reservations.Add(reservation);
+            await _context.SaveChangesAsync();
+
             return true;
         }
 
-        public Task<bool> CancelReservationAsync(int reservationId)
+        public async Task<bool> CancelReservationAsync(int reservationId)
         {
-            var reservation = _reservations.FirstOrDefault(r => r.Id == reservationId);
-            if (reservation == null || !reservation.IsActive)
-                return Task.FromResult(false);
-
-            reservation.IsActive = false;
-            return Task.FromResult(true);
-        }
-
-        public Task<List<Reservation>> GetActiveReservationsAsync(int userId)
-        {
-            var activeReservations = _reservations
-                .Where(r => r.UserId == userId && r.IsActive)
-                .OrderBy(r => r.ReservationDate)
-                .ToList();
-            return Task.FromResult(activeReservations);
-        }
-
-        public Task<Reservation?> GetNextReservationForBookAsync(int bookId)
-        {
-            var nextReservation = _reservations
-                .Where(r => r.BookId == bookId && r.IsActive)
-                .OrderBy(r => r.ReservationDate)
-                .FirstOrDefault();
-            return Task.FromResult(nextReservation);
-        }
-
-        public async Task<bool> NotifyUserBookAvailableAsync(int reservationId)
-        {
-            var reservation = _reservations.FirstOrDefault(r => r.Id == reservationId);
+            var reservation = await _context.Reservations.FindAsync(reservationId);
             if (reservation == null || !reservation.IsActive)
                 return false;
 
-            // In a real system, this would send an email or notification
-            await Task.Run(() =>
-                System.Diagnostics.Debug.WriteLine(
-                    $"Notification: Book '{reservation.Book.Title}' is now available for {reservation.User.Name}")
-            );
-
+            reservation.IsActive = false;
+            await _context.SaveChangesAsync();
             return true;
+        }
+
+        public async Task<List<Reservation>> GetActiveReservationsAsync(int userId)
+        {
+            return await _context.Reservations
+                .Include(r => r.User)
+                .Include(r => r.Book)
+                .Where(r => r.UserId == userId && r.IsActive)
+                .OrderBy(r => r.ReservationDate)
+                .ToListAsync();
+        }
+
+        public async Task<Reservation?> GetNextReservationForBookAsync(int bookId)
+        {
+            return await _context.Reservations
+                .Include(r => r.User)
+                .Include(r => r.Book)
+                .Where(r => r.BookId == bookId && r.IsActive)
+                .OrderBy(r => r.ReservationDate)
+                .FirstOrDefaultAsync();
+        }
+
+        public Task<bool> NotifyUserBookAvailableAsync(int reservationId)
+        {
+            // Placeholder for notification logic
+            return Task.FromResult(true);
         }
     }
 }

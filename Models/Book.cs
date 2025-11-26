@@ -1,24 +1,34 @@
-﻿namespace MauiApp1.Models
+﻿using System;
+using System.Collections.Generic;
+
+namespace SmartLibraryAPI.Models
 {
-    public class Book
+    public partial class Book
     {
         public int Id { get; set; }
-        public string Title { get; set; }
-        public string Author { get; set; }
-        public string ISBN { get; set; }
-        public bool IsAvailable { get; set; } = true;
-        public DateTime CreatedDate { get; set; } = DateTime.Now;
+        public string Title { get; set; } = null!;
+        public string Author { get; set; } = null!;
+        public string ISBN { get; set; } = null!;
+        public bool IsAvailable { get; set; }
+        public DateTime CreatedDate { get; set; }
 
-        public Book(string title, string author, string isbn = "")
+        public virtual ICollection<BookCatalog> BookCatalogs { get; set; } = new List<BookCatalog>();
+        public virtual ICollection<Loan> Loans { get; set; } = new List<Loan>();
+        public virtual ICollection<Reservation> Reservations { get; set; } = new List<Reservation>();
+
+        public Book()
+        {
+            IsAvailable = true;
+            CreatedDate = DateTime.Now;
+        }
+
+        public Book(string title, string author, string isbn)
         {
             Title = title;
             Author = author;
             ISBN = isbn;
-        }
-
-        public override string ToString()
-        {
-            return $"{Title} by {Author} - {(IsAvailable ? "Available" : "Borrowed")}";
+            IsAvailable = true;
+            CreatedDate = DateTime.Now;
         }
     }
 }

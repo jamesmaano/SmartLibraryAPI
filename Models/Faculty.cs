@@ -1,13 +1,15 @@
-﻿namespace MauiApp1.Models
+﻿using System.ComponentModel.DataAnnotations;
+
+namespace SmartLibraryAPI.Models
 {
     public class Faculty : User
     {
-        public string EmployeeId { get; set; }
+        public override int BorrowLimit => 5;
+        public override int ReturnDays => 30;
 
-        public override int BorrowLimit => 6;
-        public override int ReturnDays => 21;
+        public Faculty() { }
 
-        public Faculty(string name, string email = "", string phoneNumber = "", string employeeId = "")
+        public Faculty(string name, string email, string phoneNumber, string employeeId)
             : base(name, email, phoneNumber)
         {
             EmployeeId = employeeId;

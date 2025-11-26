@@ -1,92 +1,91 @@
-﻿using MauiApp1.Interfaces;
-using MauiApp1.Models;
+﻿using Microsoft.EntityFrameworkCore;
+using SmartLibraryAPI.Data;
+using SmartLibraryAPI.Interfaces;
+using SmartLibraryAPI.Models;
 
-namespace MauiApp1.Services
+namespace SmartLibraryAPI.Services
 {
     public class CatalogService : ICatalogService
     {
-        private readonly List<Catalog> _catalogs = new();
-        private readonly List<BookCatalog> _bookCatalogs = new();
+        private readonly LibraryDbContext _context;
         private readonly IBookRepository _bookRepository;
-        private int _nextCatalogId = 1;
-        private int _nextBookCatalogId = 1;
 
-        public CatalogService(IBookRepository bookRepository)
+        public CatalogService(LibraryDbContext context, IBookRepository bookRepository)
         {
+            _context = context;
             _bookRepository = bookRepository;
-            InitializeDefaultCatalogs();
         }
 
-        private void InitializeDefaultCatalogs()
+        public async Task<List<Catalog>> GetAllCatalogsAsync()
         {
-            _catalogs.Add(new Catalog("Fiction", "Fictional books and novels") { Id = _nextCatalogId++ });
-            _catalogs.Add(new Catalog("Non-Fiction", "Educational and informative books") { Id = _nextCatalogId++ });
-            _catalogs.Add(new Catalog("Science", "Science and technology books") { Id = _nextCatalogId++ });
-            _catalogs.Add(new Catalog("History", "Historical books and references") { Id = _nextCatalogId++ });
+            return await _context.Catalogs.ToListAsync();
         }
 
-        public Task<List<Catalog>> GetAllCatalogsAsync()
+        public async Task<Catalog?> GetCatalogByIdAsync(int id)
         {
-            return Task.FromResult(_catalogs);
+            return await _context.Catalogs.FindAsync(id);
         }
 
-        public Task<Catalog?> GetCatalogByIdAsync(int id)
+        public async Task<bool> AddCatalogAsync(Catalog catalog)
         {
-            var catalog = _catalogs.FirstOrDefault(c => c.Id == id);
-            return Task.FromResult(catalog);
-        }
-
-        public Task<bool> AddCatalogAsync(Catalog catalog)
-        {
-            catalog.Id = _nextCatalogId++;
-            _catalogs.Add(catalog);
-            return Task.FromResult(true);
+            _context.Catalogs.Add(catalog);
+            await _context.SaveChangesAsync();
+            return true;
         }
 
         public async Task<bool> AddBookToCatalogAsync(int bookId, int catalogId)
         {
+            // Check if book exists
             var book = await _bookRepository.GetBookByIdAsync(bookId);
+            if (book == null)
+                return false;
+
+            // Check if catalog exists
             var catalog = await GetCatalogByIdAsync(catalogId);
-
-            if (book == null || catalog == null)
+            if (catalog == null)
                 return false;
 
-            var existingEntry = _bookCatalogs
-                .FirstOrDefault(bc => bc.BookId == bookId && bc.CatalogId == catalogId);
+            // Check if relationship already exists
+            var exists = await _context.BookCatalogs
+                .AnyAsync(bc => bc.BookId == bookId && bc.CatalogId == catalogId);
 
-            if (existingEntry != null)
+            if (exists)
                 return false;
 
-            var bookCatalog = new BookCatalog(bookId, catalogId, book, catalog)
-            {
-                Id = _nextBookCatalogId++
-            };
+            // Add to junction table
+            var bookCatalog = new BookCatalog(bookId, catalogId, book, catalog);
+            _context.BookCatalogs.Add(bookCatalog);
+            await _context.SaveChangesAsync();
 
-            _bookCatalogs.Add(bookCatalog);
             return true;
         }
 
         public async Task<List<Book>> GetBooksByCatalogAsync(int catalogId)
         {
-            var bookIds = _bookCatalogs
+            var bookIds = await _context.BookCatalogs
                 .Where(bc => bc.CatalogId == catalogId)
                 .Select(bc => bc.BookId)
-                .ToList();
+                .ToListAsync();
 
-            var allBooks = await _bookRepository.GetAllBooksAsync();
-            return allBooks.Where(b => bookIds.Contains(b.Id)).ToList();
+            var books = await _context.Books
+                .Where(b => bookIds.Contains(b.Id))
+                .ToListAsync();
+
+            return books;
         }
 
-        public Task<bool> RemoveBookFromCatalogAsync(int bookId, int catalogId)
+        public async Task<bool> RemoveBookFromCatalogAsync(int bookId, int catalogId)
         {
-            var bookCatalog = _bookCatalogs
-                .FirstOrDefault(bc => bc.BookId == bookId && bc.CatalogId == catalogId);
+            var bookCatalog = await _context.BookCatalogs
+                .FirstOrDefaultAsync(bc => bc.BookId == bookId && bc.CatalogId == catalogId);
 
             if (bookCatalog == null)
-                return Task.FromResult(false);
+                return false;
 
-            _bookCatalogs.Remove(bookCatalog);
-            return Task.FromResult(true);
+            _context.BookCatalogs.Remove(bookCatalog);
+            await _context.SaveChangesAsync();
+
+            return true;
         }
     }
 }

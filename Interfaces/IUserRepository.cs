@@ -1,7 +1,7 @@
-﻿namespace MauiApp1.Interfaces
-{
-    using MauiApp1.Models;
+﻿using SmartLibraryAPI.Models;
 
+namespace SmartLibraryAPI.Interfaces
+{
     public interface IUserRepository
     {
         Task<List<User>> GetAllUsersAsync();

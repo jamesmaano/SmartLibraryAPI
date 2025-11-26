@@ -1,7 +1,9 @@
 ﻿using Microsoft.AspNetCore.Mvc;
-using MauiApp1.Interfaces;
-using MauiApp1.Models;
-using MauiApp1.Factories;
+using SmartLibraryAPI.Interfaces;
+using SmartLibraryAPI.Models;
+using SmartLibraryAPI.Factories;
+using SmartLibraryAPI.DTOs.Request;
+using SmartLibraryAPI.DTOs.Response;
 
 namespace SmartLibraryAPI.Controllers
 {
@@ -17,54 +19,53 @@ namespace SmartLibraryAPI.Controllers
         }
 
         [HttpGet]
-        public async Task<ActionResult<List<User>>> GetAllUsers()
+        public async Task<ActionResult<ApiResponse<List<User>>>> GetAllUsers()
         {
             var users = await _userRepository.GetAllUsersAsync();
-            return Ok(users);
+            return Ok(ApiResponse<List<User>>.SuccessResponse("Users retrieved successfully", users));
         }
 
         [HttpGet("{id}")]
-        public async Task<ActionResult<User>> GetUserById(int id)
+        public async Task<ActionResult<ApiResponse<User>>> GetUserById(int id)
         {
             var user = await _userRepository.GetUserByIdAsync(id);
-            if (user == null) return NotFound(new { message = "User not found" });
-            return Ok(user);
+            if (user == null)
+                return NotFound(ApiResponse<User>.ErrorResponse("User not found"));
+
+            return Ok(ApiResponse<User>.SuccessResponse("User retrieved successfully", user));
         }
 
         [HttpPost]
-        public async Task<ActionResult> AddUser([FromBody] UserDto userDto)
+        public async Task<ActionResult<ApiResponse<User>>> AddUser([FromBody] AddUserRequest request)
         {
-            if (string.IsNullOrWhiteSpace(userDto.UserType) || string.IsNullOrWhiteSpace(userDto.Name))
-                return BadRequest(new { message = "User type and name are required" });
+            if (!ModelState.IsValid)
+                return BadRequest(ApiResponse<User>.ErrorResponse("Invalid input data"));
 
             var user = UserFactory.CreateUser(
-                userDto.UserType ?? "",
-                userDto.Name ?? "",
-                userDto.Email ?? "",
-                userDto.PhoneNumber ?? "",
-                userDto.IdNumber ?? ""
+                request.UserType,
+                request.Name,
+                request.Email ?? "",
+                request.PhoneNumber ?? "",
+                request.IdNumber ?? ""
             );
+
             await _userRepository.AddUserAsync(user);
-            return CreatedAtAction(nameof(GetUserById), new { id = user.Id }, user);
+
+            return CreatedAtAction(
+                nameof(GetUserById),
+                new { id = user.Id },
+                ApiResponse<User>.SuccessResponse("User added successfully", user));
         }
 
         [HttpDelete("{id}")]
-        public async Task<ActionResult> DeleteUser(int id)
+        public async Task<ActionResult<ApiResponse<object>>> DeleteUser(int id)
         {
             var user = await _userRepository.GetUserByIdAsync(id);
-            if (user == null) return NotFound(new { message = "User not found" });
+            if (user == null)
+                return NotFound(ApiResponse<object>.ErrorResponse("User not found"));
 
             await _userRepository.DeleteUserAsync(id);
-            return Ok(new { message = "User deleted successfully" });
+            return Ok(ApiResponse<object>.SuccessResponse("User deleted successfully"));
         }
-    }
-
-    public class UserDto
-    {
-        public string? UserType { get; set; }
-        public string? Name { get; set; }
-        public string? Email { get; set; }
-        public string? PhoneNumber { get; set; }
-        public string? IdNumber { get; set; }
     }
 }

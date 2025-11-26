@@ -1,6 +1,9 @@
 ﻿using Microsoft.AspNetCore.Mvc;
-using MauiApp1.Interfaces;
-using MauiApp1.Models;
+using SmartLibraryAPI.Interfaces;
+using SmartLibraryAPI.Models;
+using SmartLibraryAPI.Factories;
+using SmartLibraryAPI.DTOs.Request;
+using SmartLibraryAPI.DTOs.Response;
 
 namespace SmartLibraryAPI.Controllers
 {
@@ -9,72 +12,111 @@ namespace SmartLibraryAPI.Controllers
     public class AuthController : ControllerBase
     {
         private readonly IAuthService _authService;
+        private readonly IUserRepository _userRepository;
 
-        public AuthController(IAuthService authService)
+        public AuthController(IAuthService authService, IUserRepository userRepository)
         {
             _authService = authService;
+            _userRepository = userRepository;
         }
 
         [HttpPost("register")]
-        public async Task<ActionResult> Register([FromBody] RegisterDto dto)
+        public async Task<ActionResult<ApiResponse<object>>> Register([FromBody] RegisterRequest request)
         {
-            if (string.IsNullOrWhiteSpace(dto.Username) || string.IsNullOrWhiteSpace(dto.Password))
-                return BadRequest(new { message = "Username and password are required" });
+            if (!ModelState.IsValid)
+                return BadRequest(ApiResponse<object>.ErrorResponse("Invalid input data"));
 
-            var success = await _authService.RegisterAsync(dto.Username, dto.Password, dto.Email, dto.Role);
+            var success = await _authService.RegisterAsync(
+                request.Username,
+                request.Password,
+                request.Email,
+                request.FullName,
+                request.StudentId,
+                request.Role);
+
             if (!success)
-                return BadRequest(new { message = "Username already exists" });
+                return BadRequest(ApiResponse<object>.ErrorResponse("Username already exists"));
 
-            return Ok(new { message = "Registration successful" });
+            // Also create a User entry for Student role
+            if (request.Role == "Student")
+            {
+                var user = UserFactory.CreateUser(
+                    "Student",
+                    request.FullName,
+                    request.Email,
+                    "",
+                    request.StudentId);
+                await _userRepository.AddUserAsync(user);
+            }
+
+            return Ok(ApiResponse<object>.SuccessResponse("Registration successful"));
         }
 
         [HttpPost("login")]
-        public async Task<ActionResult> Login([FromBody] LoginDto dto)
+        public async Task<ActionResult<ApiResponse<LoginResponse>>> Login([FromBody] LoginRequest request)
         {
-            var account = await _authService.LoginAsync(dto.Username, dto.Password);
+            if (!ModelState.IsValid)
+                return BadRequest(ApiResponse<LoginResponse>.ErrorResponse("Invalid input data"));
 
+            var account = await _authService.LoginAsync(request.Username, request.Password);
             if (account == null)
-                return Unauthorized(new { message = "Invalid username or password" });
+                return Unauthorized(ApiResponse<LoginResponse>.ErrorResponse("Invalid username or password"));
 
-            return Ok(new
+            var response = new LoginResponse
             {
-                message = "Login successful",
-                accountId = account.Id,
-                username = account.Username,
-                role = account.Role,
-                email = account.Email
-            });
+                Id = account.Id,
+                Username = account.Username,
+                Email = account.Email,
+                FullName = account.FullName,
+                Role = account.Role,
+                LoginTime = DateTime.UtcNow
+            };
+
+            return Ok(ApiResponse<LoginResponse>.SuccessResponse("Login successful", response));
+        }
+
+        [HttpPut("change-password")]
+        public async Task<ActionResult<ApiResponse<object>>> ChangePassword([FromBody] ChangePasswordRequest request)
+        {
+            if (!ModelState.IsValid)
+                return BadRequest(ApiResponse<object>.ErrorResponse("Invalid input data"));
+
+            var success = await _authService.ChangePasswordAsync(
+                request.AccountId,
+                request.CurrentPassword,
+                request.NewPassword);
+
+            if (!success)
+                return BadRequest(ApiResponse<object>.ErrorResponse("Invalid current password or account not found"));
+
+            return Ok(ApiResponse<object>.SuccessResponse("Password changed successfully"));
         }
 
         [HttpGet("accounts")]
-        public async Task<ActionResult> GetAllAccounts()
+        public async Task<ActionResult<ApiResponse<List<Account>>>> GetAllAccounts()
         {
             var accounts = await _authService.GetAllAccountsAsync();
-            return Ok(accounts);
+            return Ok(ApiResponse<List<Account>>.SuccessResponse("Accounts retrieved successfully", accounts));
         }
 
-        [HttpDelete("{id}")]
-        public async Task<ActionResult> DeleteAccount(int id)
+        [HttpGet("accounts/{id}")]
+        public async Task<ActionResult<ApiResponse<Account>>> GetAccountById(int id)
+        {
+            var account = await _authService.GetAccountByIdAsync(id);
+            if (account == null)
+                return NotFound(ApiResponse<Account>.ErrorResponse("Account not found"));
+
+            return Ok(ApiResponse<Account>.SuccessResponse("Account retrieved successfully", account));
+        }
+
+        [HttpDelete("accounts/{id}")]
+        public async Task<ActionResult<ApiResponse<object>>> DeleteAccount(int id)
         {
             var success = await _authService.DeleteAccountAsync(id);
             if (!success)
-                return NotFound(new { message = "Account not found" });
+                return NotFound(ApiResponse<object>.ErrorResponse("Account not found"));
 
-            return Ok(new { message = "Account deleted successfully" });
+            return Ok(ApiResponse<object>.SuccessResponse("Account deleted successfully"));
         }
-    }
-
-    public class RegisterDto
-    {
-        public string Username { get; set; }
-        public string Password { get; set; }
-        public string Email { get; set; }
-        public string Role { get; set; } = "User"; // User, Librarian, Admin
-    }
-
-    public class LoginDto
-    {
-        public string Username { get; set; }
-        public string Password { get; set; }
     }
 }

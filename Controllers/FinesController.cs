@@ -1,5 +1,7 @@
 ﻿using Microsoft.AspNetCore.Mvc;
-using MauiApp1.Interfaces;
+using SmartLibraryAPI.Interfaces;
+using SmartLibraryAPI.Models;
+using SmartLibraryAPI.DTOs.Response;
 
 namespace SmartLibraryAPI.Controllers
 {
@@ -15,18 +17,27 @@ namespace SmartLibraryAPI.Controllers
         }
 
         [HttpGet("user/{userId}")]
-        public async Task<ActionResult> GetUserFines(int userId)
+        public async Task<ActionResult<ApiResponse<List<Fine>>>> GetUserFines(int userId)
         {
             var fines = await _fineService.GetUnpaidFinesAsync(userId);
-            return Ok(fines);
+            return Ok(ApiResponse<List<Fine>>.SuccessResponse("User fines retrieved successfully", fines));
+        }
+
+        [HttpGet("user/{userId}/total")]
+        public async Task<ActionResult<ApiResponse<decimal>>> GetUserTotalFines(int userId)
+        {
+            var total = await _fineService.GetTotalFinesAsync(userId);
+            return Ok(ApiResponse<decimal>.SuccessResponse("Total fines calculated successfully", total));
         }
 
         [HttpPut("{fineId}/pay")]
-        public async Task<ActionResult> PayFine(int fineId)
+        public async Task<ActionResult<ApiResponse<object>>> PayFine(int fineId)
         {
             var success = await _fineService.PayFineAsync(fineId);
-            if (!success) return BadRequest(new { message = "Failed to pay fine" });
-            return Ok(new { message = "Fine paid successfully" });
+            if (!success)
+                return BadRequest(ApiResponse<object>.ErrorResponse("Failed to pay fine"));
+
+            return Ok(ApiResponse<object>.SuccessResponse("Fine paid successfully"));
         }
     }
 }
